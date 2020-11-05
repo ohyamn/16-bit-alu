@@ -1,0 +1,63 @@
+// when the io_button[0] is pressed, it will cycle between the WAIT, STORE_X and CALCULATE states
+// io_button[1] is set to be the reset button
+// in the WAIT & STORE_X states, the values of c{io_dip[1], io_dip[0]} are written to the a_mid & b_mid dffs respectively
+// the alu A & B inputs are connected to a_mid & b_mid d-flip-flops on real_alu respectively
+// in the CALCULATE state, the output value from the alu is displayed on c{io_led[1], io_led[0]}
+// the output values of z,v and n are assigned to io_led[2][2:0] in that order
+// the alufn input of the alu is connected to io_dip[2][5:0]
+module au_top (
+    input clk,              // 100MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input usb_rx,           // USB->Serial input
+    output usb_tx,          // USB->Serial output
+    output io_led [3][8],   // LEDs on IO Shield
+    output io_seg [8],      // 7-segment LEDs on IO Shield
+    output io_sel [4],      // Digit select on IO Shield
+    input io_button [5],    // 5 buttons on IO Shield
+    input io_dip [3][8]     // DIP switches on IO Shield
+  ) {
+  
+  sig rst;                  // reset signal
+  
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    edge_detector buttondetector(#RISE(1), #FALL(0));
+    button_conditioner buttoncond;
+    real_alu alu(.rst(io_button[1]));    //set io_button[1] as reset button
+  }
+
+  
+  
+  
+  always {
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    
+    usb_tx = usb_rx;        // loop serial port
+    
+    led = 8h00;             // turn LEDs off
+    
+    io_led = 3x{{8h00}};    // turn LEDs off
+    io_seg = 8hff;          // turn segments off
+    io_sel = 4hf;           // select no digits
+    
+    buttoncond.in=io_button[0];          
+    buttondetector.in=buttoncond.out;
+    
+    alu.in[15:8]=io_dip[1];              //8 MSB of input value
+    alu.in[7:0]=io_dip[0];               //8 LSB of input value
+    alu.alufn=io_dip[2][5:0];            //ALUFN input value
+    alu.press=buttondetector.out;        //button to change states
+    
+    io_led[1]=alu.out_answer[15:8];      //8 MSB of output value
+    io_led[0]=alu.out_answer[7:0];       //8 LSB of output value
+
+    io_led[2][2]=alu.out_z;              //map z output to led array 3, led 3
+    io_led[2][1]=alu.out_v;              //map v output to led array 3, led 2
+    io_led[2][0]=alu.out_n;              //map v output to led array 3, led 1
+  }
+}

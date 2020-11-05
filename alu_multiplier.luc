@@ -1,0 +1,15 @@
+module alu_multiplier (
+    input x[16],
+    input y[16],
+    output mul[16]
+
+  ) {
+
+  
+  always{
+  
+    mul = x*y;
+    //always block will only consider the last use of 16bit adder
+
+  }
+}
